@@ -5,6 +5,7 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
+const EXTRA_ENTRY_PASSWORD = process.env.EXTRA_ENTRY_PASSWORD || '';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -23,6 +24,7 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  await pool.query('ALTER TABLE entries ADD COLUMN IF NOT EXISTS num_entries INT NOT NULL DEFAULT 1');
 }
 
 app.use(express.json());
@@ -36,7 +38,7 @@ const GIVEAWAYS = {
 
 app.post('/api/enter', async (req, res) => {
   try {
-    const { giveaway, name, phone } = req.body || {};
+    const { giveaway, name, phone, extra, staffPassword } = req.body || {};
     if (!GIVEAWAYS[giveaway]) {
       return res.status(400).json({ error: 'Please choose a giveaway.' });
     }
@@ -50,6 +52,15 @@ app.post('/api/enter', async (req, res) => {
     }
     const normalizedPhone = digits.length === 11 ? digits.slice(1) : digits;
 
+    let numEntries = 1;
+    const extraCount = parseInt(extra, 10) || 0;
+    if (extraCount > 0) {
+      if (!EXTRA_ENTRY_PASSWORD || staffPassword !== EXTRA_ENTRY_PASSWORD) {
+        return res.status(403).json({ error: 'Incorrect prize wheel password — ask the attendant and try again.' });
+      }
+      numEntries = 1 + Math.min(extraCount, 10);
+    }
+
     const dup = await pool.query(
       'SELECT 1 FROM entries WHERE phone = $1 AND giveaway = $2 LIMIT 1',
       [normalizedPhone, giveaway]
@@ -59,10 +70,10 @@ app.post('/api/enter', async (req, res) => {
     }
 
     await pool.query(
-      'INSERT INTO entries (giveaway, name, phone) VALUES ($1, $2, $3)',
-      [giveaway, cleanName, normalizedPhone]
+      'INSERT INTO entries (giveaway, name, phone, num_entries) VALUES ($1, $2, $3, $4)',
+      [giveaway, cleanName, normalizedPhone, numEntries]
     );
-    res.json({ ok: true });
+    res.json({ ok: true, entries: numEntries });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
@@ -79,7 +90,12 @@ function requireAdmin(req, res, next) {
 app.get('/admin', requireAdmin, async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM entries ORDER BY created_at DESC');
   const counts = { main: 0, resident: 0 };
-  rows.forEach(r => { if (counts[r.giveaway] !== undefined) counts[r.giveaway]++; });
+  let totalEntries = 0;
+  rows.forEach(r => {
+    const n = r.num_entries || 1;
+    if (counts[r.giveaway] !== undefined) counts[r.giveaway] += n;
+    totalEntries += n;
+  });
   const fmtPhone = p => p.length === 10 ? `(${p.slice(0,3)}) ${p.slice(3,6)}-${p.slice(6)}` : p;
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   res.send(`<!doctype html>
@@ -97,13 +113,14 @@ app.get('/admin', requireAdmin, async (req, res) => {
 </style></head><body>
 <h1>Giveaway Entries</h1>
 <div class="cards">
-  <div class="card"><b>${counts.main}</b>Main Giveaway</div>
-  <div class="card"><b>${counts.resident}</b>$300 / 3 Months Free</div>
-  <div class="card"><b>${rows.length}</b>Total</div>
+  <div class="card"><b>${counts.main}</b>Main Giveaway entries</div>
+  <div class="card"><b>${counts.resident}</b>$300 / 3 Months Free entries</div>
+  <div class="card"><b>${rows.length}</b>People</div>
+  <div class="card"><b>${totalEntries}</b>Total entries</div>
 </div>
 <a class="btn" href="/admin/export?key=${encodeURIComponent(req.query.key)}">Download CSV</a>
-<table><tr><th>#</th><th>Giveaway</th><th>Name</th><th>Phone</th><th>Entered</th><th></th></tr>
-${rows.map(r => `<tr><td>${r.id}</td><td>${esc(GIVEAWAYS[r.giveaway] || r.giveaway)}</td><td>${esc(r.name)}</td><td>${fmtPhone(r.phone)}</td><td>${new Date(r.created_at).toLocaleString('en-US',{timeZone:'America/Denver'})}</td><td><form method="post" action="/admin/delete?key=${encodeURIComponent(req.query.key)}" onsubmit="return confirm('Delete entry #${r.id}?')"><input type="hidden" name="id" value="${r.id}"><button style="background:#c53030;color:#fff;border:none;border-radius:6px;padding:.25rem .6rem;cursor:pointer">✕</button></form></td></tr>`).join('')}
+<table><tr><th>#</th><th>Giveaway</th><th>Name</th><th>Phone</th><th>Entries</th><th>Entered</th><th></th></tr>
+${rows.map(r => `<tr><td>${r.id}</td><td>${esc(GIVEAWAYS[r.giveaway] || r.giveaway)}</td><td>${esc(r.name)}</td><td>${fmtPhone(r.phone)}</td><td>${r.num_entries || 1}</td><td>${new Date(r.created_at).toLocaleString('en-US',{timeZone:'America/Denver'})}</td><td><form method="post" action="/admin/delete?key=${encodeURIComponent(req.query.key)}" onsubmit="return confirm('Delete entry #${r.id}?')"><input type="hidden" name="id" value="${r.id}"><button style="background:#c53030;color:#fff;border:none;border-radius:6px;padding:.25rem .6rem;cursor:pointer">✕</button></form></td></tr>`).join('')}
 </table></body></html>`);
 });
 
@@ -115,8 +132,8 @@ app.post('/admin/delete', requireAdmin, async (req, res) => {
 app.get('/admin/export', requireAdmin, async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM entries ORDER BY created_at DESC');
   const csvEsc = v => `"${String(v).replace(/"/g, '""')}"`;
-  const lines = ['id,giveaway,name,phone,entered_at'];
-  rows.forEach(r => lines.push([r.id, csvEsc(GIVEAWAYS[r.giveaway] || r.giveaway), csvEsc(r.name), r.phone, r.created_at.toISOString()].join(',')));
+  const lines = ['id,giveaway,name,phone,entries,entered_at'];
+  rows.forEach(r => lines.push([r.id, csvEsc(GIVEAWAYS[r.giveaway] || r.giveaway), csvEsc(r.name), r.phone, r.num_entries || 1, r.created_at.toISOString()].join(',')));
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="giveaway-entries.csv"');
   res.send(lines.join('\n'));
