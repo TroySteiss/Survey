@@ -102,9 +102,14 @@ app.get('/admin', requireAdmin, async (req, res) => {
   <div class="card"><b>${rows.length}</b>Total</div>
 </div>
 <a class="btn" href="/admin/export?key=${encodeURIComponent(req.query.key)}">Download CSV</a>
-<table><tr><th>#</th><th>Giveaway</th><th>Name</th><th>Phone</th><th>Entered</th></tr>
-${rows.map(r => `<tr><td>${r.id}</td><td>${esc(GIVEAWAYS[r.giveaway] || r.giveaway)}</td><td>${esc(r.name)}</td><td>${fmtPhone(r.phone)}</td><td>${new Date(r.created_at).toLocaleString('en-US',{timeZone:'America/Denver'})}</td></tr>`).join('')}
+<table><tr><th>#</th><th>Giveaway</th><th>Name</th><th>Phone</th><th>Entered</th><th></th></tr>
+${rows.map(r => `<tr><td>${r.id}</td><td>${esc(GIVEAWAYS[r.giveaway] || r.giveaway)}</td><td>${esc(r.name)}</td><td>${fmtPhone(r.phone)}</td><td>${new Date(r.created_at).toLocaleString('en-US',{timeZone:'America/Denver'})}</td><td><form method="post" action="/admin/delete?key=${encodeURIComponent(req.query.key)}" onsubmit="return confirm('Delete entry #${r.id}?')"><input type="hidden" name="id" value="${r.id}"><button style="background:#c53030;color:#fff;border:none;border-radius:6px;padding:.25rem .6rem;cursor:pointer">✕</button></form></td></tr>`).join('')}
 </table></body></html>`);
+});
+
+app.post('/admin/delete', requireAdmin, async (req, res) => {
+  await pool.query('DELETE FROM entries WHERE id = $1', [Number(req.body.id) || 0]);
+  res.redirect(`/admin?key=${encodeURIComponent(req.query.key)}`);
 });
 
 app.get('/admin/export', requireAdmin, async (req, res) => {
