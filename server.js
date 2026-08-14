@@ -48,7 +48,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 const GIVEAWAYS = {
-  main: 'Main Giveaway (Yeti Cooler / Blackstone Grill / Igloo / Char-Griller Grill / Yeti Cup / Speaker)',
+  main: 'Main Giveaway (Yeti Cooler / Blackstone / Igloo / Char-Griller Grill / Yeti Cup / Speaker)',
   resident: '3 First Full Months Free or $300 off for 6 Months (new residents, contingent on approval)',
 };
 
