@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giveaway Entry</title>
+<style>
+  :root { --brand:#2b6cb0; --brand-dark:#234e78; }
+  * { box-sizing:border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(160deg,#1a365d 0%,#2b6cb0 100%); padding:1rem;
+  }
+  .card {
+    background:#fff; border-radius:16px; padding:2rem 1.75rem; width:100%; max-width:440px;
+    box-shadow:0 10px 40px rgba(0,0,0,.25);
+  }
+  h1 { margin:0 0 .25rem; font-size:1.5rem; color:#1a202c; text-align:center; }
+  p.sub { margin:0 0 1.5rem; color:#4a5568; text-align:center; font-size:.95rem; }
+  .options { display:grid; gap:.75rem; margin-bottom:1.25rem; }
+  .option { position:relative; }
+  .option input { position:absolute; opacity:0; }
+  .option label {
+    display:block; border:2px solid #e2e8f0; border-radius:12px; padding:.9rem 1rem;
+    cursor:pointer; transition:all .15s;
+  }
+  .option input:checked + label { border-color:var(--brand); background:#ebf4ff; }
+  .option .title { font-weight:600; color:#1a202c; }
+  .option .desc { font-size:.82rem; color:#4a5568; margin-top:.15rem; }
+  .field { margin-bottom:1rem; }
+  .field label { display:block; font-size:.85rem; font-weight:600; color:#2d3748; margin-bottom:.3rem; }
+  .field input {
+    width:100%; padding:.7rem .8rem; border:2px solid #e2e8f0; border-radius:10px;
+    font-size:1rem;
+  }
+  .field input:focus { outline:none; border-color:var(--brand); }
+  button {
+    width:100%; padding:.85rem; border:none; border-radius:10px; background:var(--brand);
+    color:#fff; font-size:1.05rem; font-weight:600; cursor:pointer; margin-top:.25rem;
+  }
+  button:hover { background:var(--brand-dark); }
+  button:disabled { opacity:.6; cursor:default; }
+  .msg { margin-top:1rem; text-align:center; font-size:.95rem; display:none; padding:.7rem; border-radius:10px; }
+  .msg.err { display:block; background:#fff5f5; color:#c53030; }
+  .msg.ok { display:block; background:#f0fff4; color:#276749; }
+  .success { text-align:center; display:none; }
+  .success .check { font-size:3rem; }
+  .success h2 { margin:.5rem 0; color:#1a202c; }
+  .success p { color:#4a5568; }
+  .fine { font-size:.72rem; color:#718096; margin-top:1rem; text-align:center; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="form-view">
+    <h1>&#127881; Enter to Win!</h1>
+    <p class="sub">Choose your giveaway and enter below.</p>
+    <form id="entry-form">
+      <div class="options">
+        <div class="option">
+          <input type="radio" name="giveaway" id="opt-main" value="main" required>
+          <label for="opt-main">
+            <div class="title">&#127942; Main Giveaway</div>
+            <div class="desc">Yeti cooler, grills &amp; cornhole set</div>
+          </label>
+        </div>
+        <div class="option">
+          <input type="radio" name="giveaway" id="opt-resident" value="resident">
+          <label for="opt-resident">
+            <div class="title">&#128176; $300 or 3 Months Free</div>
+            <div class="desc">Must be a new resident &mdash; contingent on approval</div>
+          </label>
+        </div>
+      </div>
+      <div class="field">
+        <label for="name">Full Name</label>
+        <input id="name" name="name" type="text" autocomplete="name" placeholder="Jane Smith" required>
+      </div>
+      <div class="field">
+        <label for="phone">Phone Number</label>
+        <input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="(555) 555-5555" required>
+      </div>
+      <button type="submit" id="submit-btn">Enter Giveaway</button>
+      <div class="msg" id="msg"></div>
+    </form>
+    <p class="fine">One entry per person per giveaway. By entering you agree to be contacted about this giveaway.</p>
+  </div>
+  <div class="success" id="success-view">
+    <div class="check">&#9989;</div>
+    <h2>You're entered!</h2>
+    <p id="success-text">Good luck &mdash; we'll contact winners by phone.</p>
+  </div>
+</div>
+<script>
+  const form = document.getElementById('entry-form');
+  const msg = document.getElementById('msg');
+  const btn = document.getElementById('submit-btn');
+
+  document.getElementById('phone').addEventListener('input', e => {
+    const d = e.target.value.replace(/\D/g,'').slice(0,10);
+    let out = d;
+    if (d.length > 6) out = `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+    else if (d.length > 3) out = `(${d.slice(0,3)}) ${d.slice(3)}`;
+    else if (d.length > 0) out = `(${d}`;
+    e.target.value = out;
+  });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    msg.className = 'msg';
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    try {
+      const data = {
+        giveaway: form.giveaway.value,
+        name: form.name.value,
+        phone: form.phone.value,
+      };
+      const res = await fetch('/api/enter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const body = await res.json();
+      if (res.ok) {
+        document.getElementById('form-view').style.display = 'none';
+        document.getElementById('success-view').style.display = 'block';
+      } else {
+        msg.textContent = body.error || 'Something went wrong.';
+        msg.className = 'msg err';
+      }
+    } catch {
+      msg.textContent = 'Network error — please try again.';
+      msg.className = 'msg err';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Enter Giveaway';
+    }
+  });
+</script>
+</body>
+</html>
