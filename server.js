@@ -80,14 +80,49 @@ app.post('/api/enter', async (req, res) => {
   }
 });
 
+function isAdmin(req) {
+  if (!ADMIN_KEY) return false;
+  if (req.query.key === ADMIN_KEY) return true;
+  const cookies = String(req.headers.cookie || '');
+  return cookies.split(';').some(c => {
+    const [k, ...v] = c.trim().split('=');
+    return k === 'admin' && decodeURIComponent(v.join('=')) === ADMIN_KEY;
+  });
+}
+
 function requireAdmin(req, res, next) {
-  if (!ADMIN_KEY || req.query.key !== ADMIN_KEY) {
-    return res.status(403).send('Forbidden');
-  }
+  if (!isAdmin(req)) return res.status(403).send('Forbidden');
   next();
 }
 
-app.get('/admin', requireAdmin, async (req, res) => {
+const loginPage = (error) => `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Login</title>
+<style>
+  body{font-family:system-ui,sans-serif;min-height:100vh;margin:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(165deg,#0f2440,#16325c)}
+  .box{background:#fff;border-radius:16px;padding:2rem;width:100%;max-width:340px;box-shadow:0 20px 50px rgba(0,0,0,.4)}
+  h1{font-size:1.2rem;margin:0 0 1rem;color:#182233}
+  input{width:100%;box-sizing:border-box;padding:.7rem .8rem;border:1.5px solid #e6e9ef;border-radius:10px;font-size:1rem;margin-bottom:.8rem}
+  button{width:100%;padding:.75rem;border:none;border-radius:10px;background:#16325c;color:#fff;font-size:1rem;font-weight:600;cursor:pointer}
+  .err{color:#b3352e;font-size:.85rem;margin:-.3rem 0 .7rem}
+</style></head><body>
+<form class="box" method="post" action="/admin/login">
+  <h1>Giveaway Admin</h1>
+  ${error ? '<div class="err">Incorrect password.</div>' : ''}
+  <input type="password" name="password" placeholder="Password" autofocus required>
+  <button type="submit">Sign In</button>
+</form></body></html>`;
+
+app.post('/admin/login', (req, res) => {
+  if (ADMIN_KEY && (req.body.password || '') === ADMIN_KEY) {
+    res.setHeader('Set-Cookie', `admin=${encodeURIComponent(ADMIN_KEY)}; HttpOnly; Secure; SameSite=Lax; Max-Age=43200; Path=/`);
+    return res.redirect('/admin');
+  }
+  res.status(403).send(loginPage(true));
+});
+
+app.get('/admin', async (req, res) => {
+  if (!isAdmin(req)) return res.send(loginPage(false));
   const { rows } = await pool.query('SELECT * FROM entries ORDER BY created_at DESC');
   const counts = { main: 0, resident: 0 };
   let totalEntries = 0;
@@ -118,15 +153,15 @@ app.get('/admin', requireAdmin, async (req, res) => {
   <div class="card"><b>${rows.length}</b>People</div>
   <div class="card"><b>${totalEntries}</b>Total entries</div>
 </div>
-<a class="btn" href="/admin/export?key=${encodeURIComponent(req.query.key)}">Download CSV</a>
+<a class="btn" href="/admin/export">Download CSV</a>
 <table><tr><th>#</th><th>Giveaway</th><th>Name</th><th>Phone</th><th>Entries</th><th>Entered</th><th></th></tr>
-${rows.map(r => `<tr><td>${r.id}</td><td>${esc(GIVEAWAYS[r.giveaway] || r.giveaway)}</td><td>${esc(r.name)}</td><td>${fmtPhone(r.phone)}</td><td>${r.num_entries || 1}</td><td>${new Date(r.created_at).toLocaleString('en-US',{timeZone:'America/Denver'})}</td><td><form method="post" action="/admin/delete?key=${encodeURIComponent(req.query.key)}" onsubmit="return confirm('Delete entry #${r.id}?')"><input type="hidden" name="id" value="${r.id}"><button style="background:#c53030;color:#fff;border:none;border-radius:6px;padding:.25rem .6rem;cursor:pointer">✕</button></form></td></tr>`).join('')}
+${rows.map(r => `<tr><td>${r.id}</td><td>${esc(GIVEAWAYS[r.giveaway] || r.giveaway)}</td><td>${esc(r.name)}</td><td>${fmtPhone(r.phone)}</td><td>${r.num_entries || 1}</td><td>${new Date(r.created_at).toLocaleString('en-US',{timeZone:'America/Denver'})}</td><td><form method="post" action="/admin/delete" onsubmit="return confirm('Delete entry #${r.id}?')"><input type="hidden" name="id" value="${r.id}"><button style="background:#c53030;color:#fff;border:none;border-radius:6px;padding:.25rem .6rem;cursor:pointer">✕</button></form></td></tr>`).join('')}
 </table></body></html>`);
 });
 
 app.post('/admin/delete', requireAdmin, async (req, res) => {
   await pool.query('DELETE FROM entries WHERE id = $1', [Number(req.body.id) || 0]);
-  res.redirect(`/admin?key=${encodeURIComponent(req.query.key)}`);
+  res.redirect('/admin');
 });
 
 app.get('/admin/export', requireAdmin, async (req, res) => {
