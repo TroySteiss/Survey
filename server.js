@@ -27,6 +27,7 @@ async function initDb() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `);
+    await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS email TEXT`);
   }
   // One-time migration from the old combined table, if it still exists
   const legacy = await pool.query("SELECT to_regclass('public.entries') AS t");
@@ -53,7 +54,7 @@ const GIVEAWAYS = {
 
 app.post('/api/enter', async (req, res) => {
   try {
-    const { giveaway, name, phone, extra, staffPassword } = req.body || {};
+    const { giveaway, name, phone, email, extra, staffPassword } = req.body || {};
     if (!GIVEAWAYS[giveaway]) {
       return res.status(400).json({ error: 'Please choose a giveaway.' });
     }
@@ -66,6 +67,10 @@ app.post('/api/enter', async (req, res) => {
       return res.status(400).json({ error: 'Please enter a valid phone number.' });
     }
     const normalizedPhone = digits.length === 11 ? digits.slice(1) : digits;
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({ error: 'Please enter a valid email address.' });
+    }
 
     let numEntries = 1;
     const extraCount = parseInt(extra, 10) || 0;
@@ -86,8 +91,8 @@ app.post('/api/enter', async (req, res) => {
     }
 
     await pool.query(
-      `INSERT INTO ${table} (name, phone, num_entries) VALUES ($1, $2, $3)`,
-      [cleanName, normalizedPhone, numEntries]
+      `INSERT INTO ${table} (name, phone, email, num_entries) VALUES ($1, $2, $3, $4)`,
+      [cleanName, normalizedPhone, cleanEmail, numEntries]
     );
     res.json({ ok: true, entries: numEntries });
   } catch (err) {
@@ -180,8 +185,8 @@ app.get('/admin', async (req, res) => {
   <div class="card"><b>${totalEntries}</b>Total entries</div>
 </div>
 <a class="btn" href="/admin/export">Download CSV</a>
-<table><tr><th>#</th><th>Giveaway</th><th>Name</th><th>Phone</th><th>Entries</th><th>Entered</th><th></th></tr>
-${rows.map(r => `<tr><td>${r.id}</td><td>${esc(GIVEAWAYS[r.giveaway] || r.giveaway)}</td><td>${esc(r.name)}</td><td>${fmtPhone(r.phone)}</td><td>${r.num_entries || 1}</td><td>${new Date(r.created_at).toLocaleString('en-US',{timeZone:'America/Denver'})}</td><td><form method="post" action="/admin/delete" onsubmit="return confirm('Delete entry #${r.id}?')"><input type="hidden" name="id" value="${r.id}"><input type="hidden" name="giveaway" value="${r.giveaway}"><button style="background:#c53030;color:#fff;border:none;border-radius:6px;padding:.25rem .6rem;cursor:pointer">✕</button></form></td></tr>`).join('')}
+<table><tr><th>#</th><th>Giveaway</th><th>Name</th><th>Phone</th><th>Email</th><th>Entries</th><th>Entered</th><th></th></tr>
+${rows.map(r => `<tr><td>${r.id}</td><td>${esc(GIVEAWAYS[r.giveaway] || r.giveaway)}</td><td>${esc(r.name)}</td><td>${fmtPhone(r.phone)}</td><td>${esc(r.email || '')}</td><td>${r.num_entries || 1}</td><td>${new Date(r.created_at).toLocaleString('en-US',{timeZone:'America/Denver'})}</td><td><form method="post" action="/admin/delete" onsubmit="return confirm('Delete entry #${r.id}?')"><input type="hidden" name="id" value="${r.id}"><input type="hidden" name="giveaway" value="${r.giveaway}"><button style="background:#c53030;color:#fff;border:none;border-radius:6px;padding:.25rem .6rem;cursor:pointer">✕</button></form></td></tr>`).join('')}
 </table></body></html>`);
 });
 
@@ -196,8 +201,8 @@ app.post('/admin/delete', requireAdmin, async (req, res) => {
 app.get('/admin/export', requireAdmin, async (req, res) => {
   const rows = await fetchAllEntries();
   const csvEsc = v => `"${String(v).replace(/"/g, '""')}"`;
-  const lines = ['id,giveaway,name,phone,entries,entered_at'];
-  rows.forEach(r => lines.push([r.id, csvEsc(GIVEAWAYS[r.giveaway] || r.giveaway), csvEsc(r.name), r.phone, r.num_entries || 1, r.created_at.toISOString()].join(',')));
+  const lines = ['id,giveaway,name,phone,email,entries,entered_at'];
+  rows.forEach(r => lines.push([r.id, csvEsc(GIVEAWAYS[r.giveaway] || r.giveaway), csvEsc(r.name), r.phone, csvEsc(r.email || ''), r.num_entries || 1, r.created_at.toISOString()].join(',')));
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="giveaway-entries.csv"');
   res.send(lines.join('\n'));

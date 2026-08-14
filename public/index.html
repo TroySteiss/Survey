@@ -163,6 +163,10 @@
           <label for="phone">Phone Number</label>
           <input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="(555) 555-5555" required>
         </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" inputmode="email" placeholder="jane@example.com" required>
+        </div>
         <details class="staff">
           <summary>&#127905; Won extra entries on the prize wheel?</summary>
           <div class="staff-body">
@@ -218,6 +222,7 @@
         giveaway: form.giveaway.value,
         name: form.name.value,
         phone: form.phone.value,
+        email: form.email.value,
         extra: form.extra.value,
         staffPassword: form.staffpass.value,
       };
