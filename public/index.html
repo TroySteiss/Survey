@@ -44,8 +44,8 @@
   .option { position:relative; }
   .option input { position:absolute; opacity:0; }
   .option label {
-    display:flex; gap:1rem; align-items:center; border:2px solid var(--line);
-    border-radius:16px; padding:1.3rem 1.15rem; cursor:pointer;
+    display:flex; gap:1.1rem; align-items:flex-start; border:2px solid var(--line);
+    border-radius:18px; padding:1.5rem 1.35rem; cursor:pointer;
     background:linear-gradient(180deg,#fff 0%,#f8fafc 100%);
     transition:border-color .15s, background .15s, box-shadow .15s, transform .1s;
   }
@@ -66,11 +66,11 @@
     background:#fff; border:1.5px solid var(--line); border-radius:14px;
   }
   .option input:checked + label .emoji { border-color:var(--accent); background:#fff; }
-  .option .title { font-family:"Fraunces", Georgia, serif; font-weight:700; font-size:1.22rem; letter-spacing:-.01em; color:var(--navy); }
-  .option .desc { font-size:.85rem; color:var(--muted); margin-top:.25rem; line-height:1.4; }
-  .prizes { margin:.15rem 0 0; padding:0 0 0 1.15rem; columns:2; column-gap:1.2rem; }
-  .prizes li { margin-bottom:.15rem; break-inside:avoid; }
-  .option .note { font-size:.72rem; color:#9aa3b2; font-style:italic; margin-top:.3rem; }
+  .option .title { font-family:"Fraunces", Georgia, serif; font-weight:700; font-size:1.3rem; letter-spacing:-.01em; color:var(--navy); line-height:1.2; }
+  .option .desc { font-size:.88rem; color:var(--muted); margin-top:.45rem; line-height:1.5; }
+  .prizes { margin:.5rem 0 0; padding:0 0 0 1.25rem; columns:2; column-gap:1.6rem; }
+  .prizes li { margin-bottom:.35rem; break-inside:avoid; padding-left:.15rem; }
+  .option .note { font-size:.74rem; color:#9aa3b2; font-style:italic; margin-top:.5rem; }
   .field { margin-bottom:.95rem; }
   .field label { display:block; font-size:.8rem; font-weight:650; margin-bottom:.35rem; }
   .field input {

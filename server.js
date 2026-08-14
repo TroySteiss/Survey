@@ -14,17 +14,32 @@ const pool = new Pool({
     : false,
 });
 
+const TABLES = { main: 'entries_main', resident: 'entries_resident' };
+
 async function initDb() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS entries (
-      id SERIAL PRIMARY KEY,
-      giveaway TEXT NOT NULL,
-      name TEXT NOT NULL,
-      phone TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `);
-  await pool.query('ALTER TABLE entries ADD COLUMN IF NOT EXISTS num_entries INT NOT NULL DEFAULT 1');
+  for (const table of Object.values(TABLES)) {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ${table} (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        num_entries INT NOT NULL DEFAULT 1,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+  }
+  // One-time migration from the old combined table, if it still exists
+  const legacy = await pool.query("SELECT to_regclass('public.entries') AS t");
+  if (legacy.rows[0].t) {
+    for (const [giveaway, table] of Object.entries(TABLES)) {
+      await pool.query(
+        `INSERT INTO ${table} (name, phone, num_entries, created_at)
+         SELECT name, phone, COALESCE(num_entries, 1), created_at FROM entries WHERE giveaway = $1`,
+        [giveaway]
+      );
+    }
+    await pool.query('ALTER TABLE entries RENAME TO entries_legacy');
+  }
 }
 
 app.use(express.json());
@@ -61,17 +76,18 @@ app.post('/api/enter', async (req, res) => {
       numEntries = Math.min(1 + extraCount, 5);
     }
 
+    const table = TABLES[giveaway];
     const dup = await pool.query(
-      'SELECT 1 FROM entries WHERE phone = $1 AND giveaway = $2 LIMIT 1',
-      [normalizedPhone, giveaway]
+      `SELECT 1 FROM ${table} WHERE phone = $1 LIMIT 1`,
+      [normalizedPhone]
     );
     if (dup.rowCount > 0) {
       return res.status(409).json({ error: "You're already entered in this giveaway. Good luck!" });
     }
 
     await pool.query(
-      'INSERT INTO entries (giveaway, name, phone, num_entries) VALUES ($1, $2, $3, $4)',
-      [giveaway, cleanName, normalizedPhone, numEntries]
+      `INSERT INTO ${table} (name, phone, num_entries) VALUES ($1, $2, $3)`,
+      [cleanName, normalizedPhone, numEntries]
     );
     res.json({ ok: true, entries: numEntries });
   } catch (err) {
@@ -121,9 +137,19 @@ app.post('/admin/login', (req, res) => {
   res.status(403).send(loginPage(true));
 });
 
+async function fetchAllEntries() {
+  const rows = [];
+  for (const [giveaway, table] of Object.entries(TABLES)) {
+    const r = await pool.query(`SELECT * FROM ${table}`);
+    r.rows.forEach(row => rows.push({ ...row, giveaway }));
+  }
+  rows.sort((a, b) => b.created_at - a.created_at);
+  return rows;
+}
+
 app.get('/admin', async (req, res) => {
   if (!isAdmin(req)) return res.send(loginPage(false));
-  const { rows } = await pool.query('SELECT * FROM entries ORDER BY created_at DESC');
+  const rows = await fetchAllEntries();
   const counts = { main: 0, resident: 0 };
   let totalEntries = 0;
   rows.forEach(r => {
@@ -155,17 +181,20 @@ app.get('/admin', async (req, res) => {
 </div>
 <a class="btn" href="/admin/export">Download CSV</a>
 <table><tr><th>#</th><th>Giveaway</th><th>Name</th><th>Phone</th><th>Entries</th><th>Entered</th><th></th></tr>
-${rows.map(r => `<tr><td>${r.id}</td><td>${esc(GIVEAWAYS[r.giveaway] || r.giveaway)}</td><td>${esc(r.name)}</td><td>${fmtPhone(r.phone)}</td><td>${r.num_entries || 1}</td><td>${new Date(r.created_at).toLocaleString('en-US',{timeZone:'America/Denver'})}</td><td><form method="post" action="/admin/delete" onsubmit="return confirm('Delete entry #${r.id}?')"><input type="hidden" name="id" value="${r.id}"><button style="background:#c53030;color:#fff;border:none;border-radius:6px;padding:.25rem .6rem;cursor:pointer">✕</button></form></td></tr>`).join('')}
+${rows.map(r => `<tr><td>${r.id}</td><td>${esc(GIVEAWAYS[r.giveaway] || r.giveaway)}</td><td>${esc(r.name)}</td><td>${fmtPhone(r.phone)}</td><td>${r.num_entries || 1}</td><td>${new Date(r.created_at).toLocaleString('en-US',{timeZone:'America/Denver'})}</td><td><form method="post" action="/admin/delete" onsubmit="return confirm('Delete entry #${r.id}?')"><input type="hidden" name="id" value="${r.id}"><input type="hidden" name="giveaway" value="${r.giveaway}"><button style="background:#c53030;color:#fff;border:none;border-radius:6px;padding:.25rem .6rem;cursor:pointer">✕</button></form></td></tr>`).join('')}
 </table></body></html>`);
 });
 
 app.post('/admin/delete', requireAdmin, async (req, res) => {
-  await pool.query('DELETE FROM entries WHERE id = $1', [Number(req.body.id) || 0]);
+  const table = TABLES[req.body.giveaway];
+  if (table) {
+    await pool.query(`DELETE FROM ${table} WHERE id = $1`, [Number(req.body.id) || 0]);
+  }
   res.redirect('/admin');
 });
 
 app.get('/admin/export', requireAdmin, async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM entries ORDER BY created_at DESC');
+  const rows = await fetchAllEntries();
   const csvEsc = v => `"${String(v).replace(/"/g, '""')}"`;
   const lines = ['id,giveaway,name,phone,entries,entered_at'];
   rows.forEach(r => lines.push([r.id, csvEsc(GIVEAWAYS[r.giveaway] || r.giveaway), csvEsc(r.name), r.phone, r.num_entries || 1, r.created_at.toISOString()].join(',')));
