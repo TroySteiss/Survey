@@ -45,7 +45,7 @@ async function initDb() {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 const GIVEAWAYS = {
   main: 'Main Giveaway (Yeti Cooler / Blackstone Grill / Igloo / Char-Griller Grill / Yeti Cup / Speaker)',
