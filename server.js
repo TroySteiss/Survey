@@ -58,7 +58,7 @@ app.post('/api/enter', async (req, res) => {
       if (!EXTRA_ENTRY_PASSWORD || staffPassword !== EXTRA_ENTRY_PASSWORD) {
         return res.status(403).json({ error: 'Incorrect prize wheel password — ask the attendant and try again.' });
       }
-      numEntries = 1 + Math.min(extraCount, 10);
+      numEntries = Math.min(1 + extraCount, 5);
     }
 
     const dup = await pool.query(
