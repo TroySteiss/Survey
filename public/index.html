@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Enter to Win</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --navy:#0f2440; --navy-2:#16325c; --accent:#c9a24b; --accent-dark:#b08a35;
@@ -11,7 +14,7 @@
   }
   * { box-sizing:border-box; margin:0; }
   body {
-    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
     min-height:100vh; display:flex; align-items:center; justify-content:center;
     background:
       radial-gradient(1200px 600px at 80% -10%, rgba(201,162,75,.18), transparent 60%),
@@ -30,26 +33,41 @@
     font-size:.72rem; letter-spacing:.22em; text-transform:uppercase; color:var(--accent);
     font-weight:700; margin-bottom:.35rem;
   }
-  .banner h1 { font-size:1.65rem; font-weight:700; letter-spacing:-.01em; }
+  .banner h1 { font-family:"Fraunces", Georgia, serif; font-size:2rem; font-weight:700; letter-spacing:-.01em; }
   .banner p { color:#c7d2e4; font-size:.9rem; margin-top:.4rem; }
   .inner { padding:1.5rem 1.5rem 1.75rem; }
   .section-label {
     font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
     font-weight:700; margin:0 0 .6rem;
   }
-  .options { display:grid; gap:.7rem; margin-bottom:1.4rem; }
+  .options { display:grid; gap:.9rem; margin-bottom:1.5rem; }
+  .option { position:relative; }
   .option input { position:absolute; opacity:0; }
   .option label {
-    display:flex; gap:.8rem; align-items:flex-start; border:1.5px solid var(--line);
-    border-radius:14px; padding:.95rem 1rem; cursor:pointer; transition:border-color .15s, background .15s, box-shadow .15s;
+    display:flex; gap:1rem; align-items:center; border:2px solid var(--line);
+    border-radius:16px; padding:1.3rem 1.15rem; cursor:pointer;
+    background:linear-gradient(180deg,#fff 0%,#f8fafc 100%);
+    transition:border-color .15s, background .15s, box-shadow .15s, transform .1s;
   }
-  .option label:hover { border-color:#c8cfda; }
+  .option label:hover { border-color:#b9c3d2; transform:translateY(-1px); }
   .option input:checked + label {
-    border-color:var(--accent); background:#fdf9f0; box-shadow:0 0 0 3px rgba(201,162,75,.15);
+    border-color:var(--accent);
+    background:linear-gradient(180deg,#fffdf7 0%,#fdf6e6 100%);
+    box-shadow:0 0 0 4px rgba(201,162,75,.18), 0 8px 22px rgba(201,162,75,.22);
   }
-  .option .emoji { font-size:1.4rem; line-height:1.2; }
-  .option .title { font-weight:650; font-size:.98rem; }
-  .option .desc { font-size:.8rem; color:var(--muted); margin-top:.2rem; line-height:1.35; }
+  .option input:checked + label::after {
+    content:"\2713"; position:absolute; top:-.55rem; right:-.4rem; width:1.7rem; height:1.7rem;
+    background:var(--accent); color:#fff; border-radius:50%; font-weight:700; font-size:.95rem;
+    display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(176,138,53,.4);
+  }
+  .option .emoji {
+    font-size:2rem; line-height:1; flex-shrink:0; width:3.4rem; height:3.4rem;
+    display:flex; align-items:center; justify-content:center;
+    background:#fff; border:1.5px solid var(--line); border-radius:14px;
+  }
+  .option input:checked + label .emoji { border-color:var(--accent); background:#fff; }
+  .option .title { font-family:"Fraunces", Georgia, serif; font-weight:700; font-size:1.22rem; letter-spacing:-.01em; color:var(--navy); }
+  .option .desc { font-size:.85rem; color:var(--muted); margin-top:.25rem; line-height:1.4; }
   .field { margin-bottom:.95rem; }
   .field label { display:block; font-size:.8rem; font-weight:650; margin-bottom:.35rem; }
   .field input {
@@ -81,7 +99,7 @@
   .msg.err { display:block; background:#fdf1f0; color:var(--err); }
   .success { text-align:center; display:none; padding:2.5rem 1.5rem 2.75rem; }
   .success .check { font-size:3.2rem; }
-  .success h2 { margin:.6rem 0 .3rem; font-size:1.45rem; }
+  .success h2 { margin:.6rem 0 .3rem; font-size:1.55rem; font-family:"Fraunces", Georgia, serif; }
   .success p { color:var(--muted); font-size:.95rem; }
   .success .badge {
     display:inline-block; margin-top:1rem; background:#fdf9f0; border:1.5px solid var(--accent);
