@@ -32,8 +32,8 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const GIVEAWAYS = {
-  main: 'Main Giveaway (Yeti / Grills / Cornhole)',
-  resident: '$300 or 3 Months Free (new residents, contingent on approval)',
+  main: 'Main Giveaway (Yeti Cooler / Blackstone Grill / Igloo / Chargoyle Grill / Yeti Cup / Speaker)',
+  resident: '3 First Full Months Free or $300 off for 6 Months (new residents, contingent on approval)',
 };
 
 app.post('/api/enter', async (req, res) => {

@@ -68,6 +68,9 @@
   .option input:checked + label .emoji { border-color:var(--accent); background:#fff; }
   .option .title { font-family:"Fraunces", Georgia, serif; font-weight:700; font-size:1.22rem; letter-spacing:-.01em; color:var(--navy); }
   .option .desc { font-size:.85rem; color:var(--muted); margin-top:.25rem; line-height:1.4; }
+  .prizes { margin:.15rem 0 0; padding:0 0 0 1.15rem; columns:2; column-gap:1.2rem; }
+  .prizes li { margin-bottom:.15rem; break-inside:avoid; }
+  .option .note { font-size:.72rem; color:#9aa3b2; font-style:italic; margin-top:.3rem; }
   .field { margin-bottom:.95rem; }
   .field label { display:block; font-size:.8rem; font-weight:650; margin-bottom:.35rem; }
   .field input {
@@ -126,7 +129,16 @@
               <span class="emoji">&#127942;</span>
               <span>
                 <span class="title">Main Giveaway</span>
-                <span class="desc" style="display:block">Yeti cooler, grills &amp; a cornhole set</span>
+                <span class="desc" style="display:block">
+                  <ol class="prizes">
+                    <li>Yeti Cooler</li>
+                    <li>Blackstone Grill</li>
+                    <li>Igloo</li>
+                    <li>Chargoyle Grill</li>
+                    <li>Yeti Cup</li>
+                    <li>Speaker</li>
+                  </ol>
+                </span>
               </span>
             </label>
           </div>
@@ -135,8 +147,9 @@
             <label for="opt-resident">
               <span class="emoji">&#128176;</span>
               <span>
-                <span class="title">$300 or 3 Months Free</span>
-                <span class="desc" style="display:block">New residents only &mdash; contingent on approval</span>
+                <span class="title">3 First Full Months Free</span>
+                <span class="desc" style="display:block">or $300 off for 6 months</span>
+                <span class="note" style="display:block">New residents only &mdash; contingent on approval</span>
               </span>
             </label>
           </div>
@@ -174,6 +187,9 @@
     <h2>You're entered!</h2>
     <p>Good luck &mdash; winners will be contacted by phone.</p>
     <div class="badge" id="entry-badge"></div>
+    <div>
+      <button type="button" class="primary" id="reset-btn" style="max-width:280px;margin:1.5rem auto 0;display:block">&#8635; Enter Another Person</button>
+    </div>
   </div>
 </div>
 <script>
@@ -189,6 +205,8 @@
     else if (d.length > 0) out = `(${d}`;
     e.target.value = out;
   });
+
+  document.getElementById('reset-btn').addEventListener('click', () => window.location.reload());
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
